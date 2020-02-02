@@ -1,8 +1,9 @@
-const redis = require('redis');
 const dotenv = require('dotenv');
 const nodemailer = require('nodemailer');
+const Queue = require('bull');
 
 dotenv.config();
+const mailQueue = new Queue('mail-queue', {redis: {port: process.env.REDIS_PORT, host: process.env.REDIS_HOST}});
 
 const transporter = nodemailer.createTransport({
     host: process.env.MAILTRAP_HOST,
@@ -13,26 +14,37 @@ const transporter = nodemailer.createTransport({
     },
 });
 
+mailQueue.process(async job => {
+    console.log('Starting job...', job.data);
+    try {
+        await sendMail(job.data);
+        console.log('success!');
+    } catch (err) {
+        console.log('Job failed...');
+        return Promise.reject();
+    }
 
-const redisSubscriber = redis.createClient(process.env.REDIS_PORT, process.env.REDIS_HOST);
-
-redisSubscriber.on('message', (channel, dataString) => {
-    const data = JSON.parse(dataString);
-
-    console.log('Sending mail...');
-
-    transporter.sendMail({
-        from: '"Test" <test@example.com>',
-        to: 'test1@example.com',
-        subject: data.title,
-        text: data.message,
-    }, (err, info) => {
-        if (err) {
-            return console.error(`Shit went bad - ${err}`)
-        }
-
-        console.log(`Message sent: ${JSON.stringify(info)}`);
-    });
+    return Promise.resolve('done!!!');
 });
 
-redisSubscriber.subscribe('send');
+mailQueue.on('completed', (job, result) => {
+    console.log(job);
+    console.log(result);
+});
+
+function sendMail(data) {
+    return new Promise((resolve, reject) => {
+        transporter.sendMail({
+            from: '"Test" <test@example.com>',
+            to: 'test1@example.com',
+            subject: data.title,
+            text: data.message,
+        }, (err, info) => {
+            if (err) {
+                return reject(`Shit went bad - ${err}`);
+            }
+
+            return resolve(`Message sent: ${JSON.stringify(info)}`);
+        });
+    });
+}

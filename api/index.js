@@ -1,18 +1,20 @@
 const express = require('express');
 const redis = require('redis');
 const dotenv = require('dotenv');
+const Queue = require('bull');
 
 dotenv.config();
 
+const mailQueue = new Queue('mail-queue', {redis: {port: process.env.REDIS_PORT, host: process.env.REDIS_HOST}});
+
 const app = express();
-const redisPublisher = redis.createClient(process.env.REDIS_PORT, process.env.REDIS_HOST);
 
 app.use(express.json());
 
 app.post('/api/send-mail', (req, res) => {
     const {title, message} = req.body;
 
-    redisPublisher.publish('send', JSON.stringify(title, message));
+    mailQueue.add({title, message}, {attempts: 3, backoff: 5000});
 
     res.json({success: true});
 });
