@@ -1,0 +1,25 @@
+version: '2'
+
+services:
+  proxy:
+    build: ./nginx
+    ports:
+      - '8080:80'
+    depends_on:
+      - api
+  api:
+    build: ./api
+    volumes:
+      - /app/node_modules
+      - ./api:/app
+    depends_on:
+      - redis
+  mail-worker:
+    build: ./mail-worker
+    volumes:
+      - /app/node_modules
+      - ./mail-worker:/app
+    depends_on:
+      - redis
+  redis:
+    image: 'redis:latest'

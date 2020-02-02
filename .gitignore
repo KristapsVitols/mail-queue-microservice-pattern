@@ -1,0 +1,5 @@
+.idea
+api/node_modules
+api/.env
+mail-worker/node_modules
+mail-worker/.env
